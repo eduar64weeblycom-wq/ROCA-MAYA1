@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Preclínica - Clínicas Roca Maya</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/css/styleCitas.css" />
+  <link rel="stylesheet" href="/css/preclinica.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    /* Mensajes de validación debajo del formulario */
+    .validation-list { margin: 12px 0; padding: 12px; border-radius: 8px; background:#fff8e1; color:#8a6d00; border:1px solid #ffeeba; }
+    .validation-list ul { margin:0; padding-left:18px; }
+    .validation-ok { color: #155724; background: #d4edda; border:1px solid #c3e6cb; padding:10px; border-radius:8px; }
+    .validation-error { color: #721c24; background: #f8d7da; border:1px solid #f5c6cb; padding:10px; border-radius:8px; }
+    .validation-info { color: #0f5132; background: #d1e7dd; border:1px solid #badbcc; padding:10px; border-radius:8px; }
+
+    .confirm-field { display:flex; gap:8px; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #eee; }
+    .confirm-field strong { min-width:180px; display:inline-block; color:#333; }
+
+    /* Inline field error styling */
+    .field-error { border-color: #dc3545 !important; box-shadow: 0 0 0 4px rgba(220,53,69,0.06) !important; }
+    .field-warning { border-color: #ff8800 !important; box-shadow: 0 0 0 4px rgba(255,136,0,0.06) !important; }
+    .error-text { color:#721c24; font-size:0.9rem; margin-top:6px; display:block; }
+    .info-text { color:#0f5132; font-size:0.9rem; margin-top:6px; display:block; }
+
+    /* Small responsive fix for confirm modal content */
+    @media (max-width: 700px) {
+      #confirmSummary { font-size: 0.95rem; }
+    }
+
+    .help-small { font-size: .85rem; color:#6c757d; margin-top:6px; }
+  </style>
+</head>
+<body>
+  <main class="ctcontainer ctmy-4">
+    <div class="ctcitas-header">
+      <div class="header-left">
+        <div class="logo-container">
+          <button id="logoBtn" class="logo-btn" type="button" onclick="window.location.href='/'"><img src="/roca-maya-oct.jpg" class="logo" alt="logo"></button>
+          <div class="clinic-name">Clínicas Roca Maya</div>
+        </div>
+        <div class="title-wrap"><h1><i class="fas fa-stethoscope"></i> Preclínica</h1><p class="ctsmall">Registro de signos vitales</p></div>
+      </div>
+      <div class="actions-right"><button id="btnNuevaPreclinica" class="ctbtn-primary" type="button"><i class="fas fa-plus"></i> Nueva Preclínica</button></div>
+    </div>
+
+    <div id="alertSuccessPre" class="ctalert ctalert-success" style="display:none;"><i class="fas fa-check-circle"></i> <span id="successMessagePre"></span></div>
+    <div id="alertErrorPre" class="ctalert ctalert-error" style="display:none;"><i class="fas fa-exclamation-circle"></i> <span id="errorMessagePre"></span></div>
+
+    <div class="ctfiltros-preclinica">
+      <div class="ctfiltro-item"><label for="filtroPaciente">Buscar</label><input id="filtroPaciente" class="ctinput-field" /></div>
+      <div class="ctfiltro-item"><label for="filtroFecha">Fecha</label><input id="filtroFecha" type="date" class="ctinput-field" /></div>
+      <div class="ctfiltro-item"><label for="filtroEstadoCita">Estado</label><select id="filtroEstadoCita" class="ctinput-field"><option value="">Todos</option></select></div>
+    </div>
+
+    <div class="cttabla-preclinica">
+      <div id="tablaContenidoPreclinica" class="ctmy-4">
+        <div class="ctsin-citas"><i class="fas fa-stethoscope"></i><h3>No hay registros</h3></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Preclínica -->
+  <div id="modalPreclinica" class="ctmodal-preclinica" aria-hidden="true" style="display:none;">
+    <div class="ctmodal-contenido" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 id="modalTitle"><i class="fas fa-stethoscope"></i> Preclínica</h2>
+        <button id="btnCerrarModalPreclinica" class="ctclose-modal" title="Cerrar" type="button">&times;</button>
+      </div>
+
+      <div id="modalError" class="ctalert ctalert-error" style="display:none; margin-top:10px;"></div>
+
+      <form id="formPreclinica" class="ctform" style="margin-top:12px;" onsubmit="return false;">
+        <input type="hidden" id="idPreclinica" />
+        <div class="ctmodal-form-grid">
+          <div>
+            <label for="selectCita">Cita</label>
+            <select id="selectCita" class="ctinput-field"></select>
+            <div id="selectCita-error" class="error-text" style="display:none;"></div>
+            <div id="pacienteInfo" class="ctsmall" style="margin-top:6px;"></div>
+          </div>
+
+          <div>
+            <label for="temperatura">Temperatura (°C)</label>
+            <input id="temperatura" class="ctinput-field" type="number" step="0.1" />
+            <div id="temperatura-error" class="error-text" style="display:none;"></div>
+          </div>
+
+          <div>
+            <label for="presionSistolica">Presión sistólica</label>
+            <input id="presionSistolica" class="ctinput-field" type="number" />
+            <div id="presionSistolica-error" class="error-text" style="display:none;"></div>
+          </div>
+
+          <div>
+            <label for="presionDiastolica">Presión diastólica</label>
+            <input id="presionDiastolica" class="ctinput-field" type="number" />
+            <div id="presionDiastolica-error" class="error-text" style="display:none;"></div>
+          </div>
+
+          <div>
+            <label for="frecuenciaCardiaca">Frecuencia cardíaca (fc)</label>
+            <input id="frecuenciaCardiaca" class="ctinput-field" type="number" />
+            <div id="frecuenciaCardiaca-error" class="error-text" style="display:none;"></div>
+          </div>
+
+          <div>
+            <label for="frecuenciaRespiratoria">Frecuencia respiratoria (fr)</label>
+            <input id="frecuenciaRespiratoria" class="ctinput-field" type="number" />
+            <div id="frecuenciaRespiratoria-error" class="error-text" style="display:none;"></div>
+          </div>
+
+          <div>
+            <label for="saturacionOxigeno">Saturación O₂ (%)</label>
+            <input id="saturacionOxigeno" class="ctinput-field" type="number" step="0.1" />
+            <div id="saturacionOxigeno-error" class="error-text" style="display:none;"></div>
+          </div>
+
+          <div>
+            <label for="peso">Peso (kg)</label>
+            <input id="peso" class="ctinput-field" type="number" step="0.01" />
+            <div id="peso-error" class="error-text" style="display:none;"></div>
+          </div>
+
+          <div>
+            <label for="talla">Talla (metros)</label>
+            <input id="talla" class="ctinput-field" type="number" step="0.01" />
+            <div id="talla-error" class="error-text" style="display:none;"></div>
+            <div class="help-small">Introduzca la talla en metros (p. ej. 1.80). Si escribe <em>180</em> se interpretará como cm y se convertirá a 1.80 m automáticamente.</div>
+            <div id="talla-info" class="info-text" style="display:none;"></div>
+          </div>
+
+          <div>
+            <label for="imc">IMC (calculado)</label>
+            <input id="imc" class="ctinput-field" type="text" readonly />
+            <small id="finIMC" class="ctsmall">-</small>
+          </div>
+
+          <div>
+            <label for="glucosa">Glucosa (mg/dL)</label>
+            <input id="glucosa" class="ctinput-field" type="number" step="0.1" />
+            <div id="glucosa-error" class="error-text" style="display:none;"></div>
+          </div>
+
+          <div>
+            <label for="perimetroAbdominal">Perímetro abdominal (cm)</label>
+            <input id="perimetroAbdominal" class="ctinput-field" type="number" step="0.1" />
+            <div id="perimetroAbdominal-error" class="error-text" style="display:none;"></div>
+          </div>
+
+          <div class="full">
+            <label for="observaciones">Observaciones</label>
+            <textarea id="observaciones" rows="3" class="ctinput-field"></textarea>
+            <div id="observaciones-error" class="error-text" style="display:none;"></div>
+          </div>
+
+          <div>
+            <label for="estadoGeneral">Estado general</label>
+            <select id="estadoGeneral" class="ctinput-field">
+              <option value="BUENO">BUENO</option>
+              <option value="REGULAR">REGULAR</option>
+              <option value="MALO">MALO</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Área donde se muestran las validaciones resumidas -->
+        <div id="validationMessages" aria-live="polite" style="margin-top:12px;"></div>
+
+        <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:18px;">
+          <button type="button" id="btnCancelarPreclinica" class="ctbtn-secondary">Cancelar</button>
+          <button type="button" id="btnGuardarPreclinica" class="ctbtn-primary"><i class="fas fa-save"></i> Guardar Preclínica</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Confirmación antes de enviar -->
+  <div id="confirmPreclinicaModal" class="ctmodal-preclinica" aria-hidden="true" style="display:none;">
+    <div class="ctmodal-contenido" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 id="confirmTitle"><i class="fas fa-question-circle"></i> Confirmar Preclínica</h2>
+        <button id="btnCloseConfirm" class="ctclose-modal" title="Cerrar" type="button">&times;</button>
+      </div>
+
+      <p style="margin-top:10px; color:#333;">Revisa los datos que se van a guardar. Si necesitas modificarlos, pulsa "Editar".</p>
+
+      <div id="confirmSummary" style="margin-top:12px; max-height:50vh; overflow:auto; background:#fff; padding:12px; border-radius:8px; border:1px solid #eef4f8;"></div>
+
+      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:18px;">
+        <button type="button" id="btnEditPreclinica" class="ctbtn-secondary">Editar</button>
+        <button type="button" id="btnConfirmPreclinica" class="ctbtn-primary"><i class="fas fa-check"></i> Confirmar y Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/preclinica.js" defer></script>
+</body>
+</html>

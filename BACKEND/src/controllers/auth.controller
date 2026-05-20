@@ -1,0 +1,66 @@
+const pool = require('../database/db');
+const { registrarBitacora } = require('../services/bitacora.service');
+
+
+async function register(req, res) {
+const { username, password, confirm_password, email, nombre_completo } = req.body;
+try {
+if (password !== confirm_password) return res.render('index', { error: 'Las contraseñas no coinciden.', success: null, username, email, nombre_completo });
+if (password.length < 6) return res.render('index', { error: 'La contraseña debe tener al menos 6 caracteres.', success: null, username, email, nombre_completo });
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+if (!emailRegex.test(email)) return res.render('index', { error: 'Email inválido', success: null, username, email, nombre_completo });
+
+
+const [existing] = await pool.query('SELECT ID_USUARIO FROM TBL_MS_USUARIO WHERE USUARIO = ?', [username]);
+if (existing.length) return res.render('index', { error: 'Usuario ya existe', success: null, username: '', email, nombre_completo });
+
+
+const [result] = await pool.query(`INSERT INTO TBL_MS_USUARIO (USUARIO,NOMBRE_USUARIO,ESTADO,CONTRASEÑA,ID_ROL,CORREO_ELECTRONICO,FECHA_VENCIMIENTO,USUARIO_CREACION) VALUES (?, ?, 'ACTIVO', ?, 5, ?, DATE_ADD(CURDATE(), INTERVAL 30 DAY), 'SISTEMA')`, [username, nombre_completo || username, password, email]);
+
+
+await registrarBitacora({ usuario: username, accion: 'REGISTRO_USUARIO', descripcion: `Nuevo usuario ${username}`, modulo: 'AUTENTICACION', idRegistro: result.insertId, tabla: 'TBL_MS_USUARIO', req, estado: 'EXITO' });
+
+
+res.render('index', { error: null, success: 'Registro exitoso', username: '', email: '', nombre_completo: '' });
+} catch (err) {
+console.error('register error', err);
+await registrarBitacora({ usuario: 'SISTEMA', accion: 'ERROR_REGISTRO', descripcion: err.message, modulo: 'AUTENTICACION', req, estado: 'ERROR', detalleError: err.message });
+res.render('index', { error: 'Error interno', success: null, username: req.body.username });
+}
+}
+
+
+async function login(req, res) {
+const { username, password } = req.body;
+try {
+await registrarBitacora({ usuario: username, accion: 'INTENTO_LOGIN', descripcion: 'Intento de login', modulo: 'AUTENTICACION', req, estado: 'EXITO' });
+
+
+// Ejemplo: si existe procedure SP_VALIDAR_LOGIN, usarlo; si falla, fallback.
+try {
+const [results] = await pool.query('CALL SP_VALIDAR_LOGIN(?, ?)', [username.toUpperCase(), password]);
+const resultado = results[0][0];
+if (resultado && resultado.RESULTADO === 'EXITO') return res.redirect('/bienvenido');
+if (resultado && resultado.RESULTADO === 'REQUIERE_2FA') return res.render('login-2fa', { userId: username, error: null });
+return res.render('index', { error: resultado ? resultado.MENSAJE : 'Credenciales incorrectas', success: null, username });
+} catch (procErr) {
+// fallback: verificar directamente
+const [rows] = await pool.query('SELECT ID_USUARIO, CONTRASEÑA, ESTADO, ACTIVO_2FA, SECRET_2FA FROM TBL_MS_USUARIO WHERE USUARIO = ?', [username]);
+if (!rows.length) return res.render('index', { error: 'Usuario no encontrado', success: null, username });
+const user = rows[0];
+if (user.ESTADO === 'BLOQUEADO') return res.render('index', { error: 'Usuario bloqueado', success: null, username });
+if (user.CONTRASEÑA === password) {
+if (user.ACTIVO_2FA === 1 && user.SECRET_2FA) return res.render('login-2fa', { userId: username, error: null });
+return res.redirect('/bienvenido');
+}
+return res.render('index', { error: 'Contraseña incorrecta', success: null, username });
+}
+} catch (err) {
+console.error('login error', err);
+await registrarBitacora({ usuario: 'SISTEMA', accion: 'ERROR_LOGIN', descripcion: err.message, modulo: 'AUTENTICACION', req, estado: 'ERROR', detalleError: err.message });
+res.render('index', { error: 'Error interno', success: null, username: req.body.username });
+}
+}
+
+
+module.exports = { register, login };

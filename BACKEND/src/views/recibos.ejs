@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= titulo %> - Clínicas Roca Maya</title>
+
+    <link rel="stylesheet" href="/css/recibo.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="/js/recibos.js"></script>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- HEADER -->
+        <header class="header">
+            <div class="logo-container">
+                <button class="logo-btn" id="logoBtn" title="Volver al Dashboard" aria-label="Volver al Panel de Control">
+                    <img src="/roca-maya-oct.jpg" alt="Clínicas Roca Maya" class="logo">
+                </button>
+                <div class="clinic-name">Clínicas Roca Maya</div>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+
+            <!-- PAGE HEADER -->
+            <div class="page-header">
+                <h1><i class="fas fa-cash-register"></i> <%= titulo %></h1>
+
+                <div class="actions">
+                    <button class="btn btn-secondary" id="btnImprimirRecibos" aria-label="Imprimir listado de recibos">
+                        <i class="fas fa-print"></i> Imprimir
+                    </button>
+                    </a>
+                </div>
+            </div>
+
+            <!-- ALERTAS -->
+            <% if (typeof success !== "undefined" && success) { %>
+                <div class="alert alert-success" role="alert"><%= success %></div>
+            <% } %>
+
+            <% if (typeof error !== "undefined" && error) { %>
+                <div class="alert alert-error" role="alert"><%= error %></div>
+            <% } %>
+
+            <!-- FILTROS -->
+            <div class="filter-controls">
+                <form action="/recibos" method="GET" class="filter-form">
+
+                    <input type="text"
+                           name="numero"
+                           placeholder="Buscar por N° Recibo..."
+                           value="<%= filters.numero || '' %>">
+
+                    <select name="estado" id="estadoFilter">
+                        <option value="" <%= filters.estado === "" ? "selected" : "" %>>Todos los Estados</option>
+                        <option value="PENDIENTE" <%= filters.estado === "PENDIENTE" ? "selected" : "" %>>Pendiente</option>
+                        <option value="PAGADA" <%= filters.estado === "PAGADA" ? "selected" : "" %>>Pagada</option>
+                        <option value="ANULADA" <%= filters.estado === "ANULADA" ? "selected" : "" %>>Anulada</option>
+                    </select>
+
+                    <button type="submit" class="btn btn-info">
+                        <i class="fas fa-filter"></i> Filtrar
+                    </button>
+
+                    <a href="/recibos" class="btn btn-secondary">
+                        <i class="fas fa-redo"></i> Limpiar
+                    </a>
+                </form>
+            </div>
+
+            <!-- TABLA -->
+            <div class="table-container">
+                <table class="data-table">
+
+                    <thead>
+                        <tr>
+                            <th>N° Recibo</th>
+                            <th>Fecha</th>
+                            <th>Paciente</th>
+                            <th></th>
+                            <th>Total</th>
+                            <th>Saldo Pendiente</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <% if (recibos && recibos.length > 0) { %>
+
+                            <% recibos.forEach(f => { %>
+                                <tr class="<%= f.ESTADO_RECIBO.toLowerCase() %>-row">
+
+                                    <td><%= f.NUMERO_RECIBO %></td>
+                                    <td><%= f.FECHA_CREACION %></td>
+                                    <td><%= f.NOMBRE_PACIENTE %></td>
+                                    <td><%= f.CONCEPTO %></td>
+
+                                    <td>L. <%= parseFloat(f.MONTO_TOTAL).toFixed(2) %></td>
+                                    <td>L. <%= parseFloat(f.SALDO_PENDIENTE).toFixed(2) %></td>
+
+                                    <td>
+                                        <span class="estado-tag estado-<%= f.ESTADO_RECIBO.toLowerCase() %>">
+                                            <%= f.ESTADO_RECIBO %>
+                                        </span>
+                                    </td>
+
+                                    <td class="actions-cell">
+                                        <div class="actions-dropdown">
+
+                                            <!-- VER -->
+                                            <a href="/recibos/<%= f.ID_RECIBO %>"
+                                               class="btn-small btn-info"
+                                               title="Ver Detalle"
+                                               aria-label="Ver detalles del recibo <%= f.NUMERO_RECIBO %>">
+                                                <i class="fas fa-eye"></i> Ver
+                                            </a>
+
+                                            <!-- ACCIONES PARA PENDIENTE -->
+                                            <% if (f.ESTADO_RECIBO === "PENDIENTE") { %>
+
+                                                <!-- Pagar -->
+                                                <form action="/recibos/status/<%= f.ID_RECIBO %>?_method=PUT"
+                                                      method="POST"
+                                                      class="actions-form"
+                                                      onsubmit="return confirm('¿Confirma que el recibo #<%= f.NUMERO_RECIBO %> ha sido PAGADO?');">
+
+                                                    <input type="hidden" name="newStatus" value="PAGADA">
+                                                    <input type="hidden" name="montoTotalToRestore" value="<%= parseFloat(f.MONTO_TOTAL) %>">
+                                                    <input type="hidden" name="original_query" value="list">
+
+                                                    <button type="submit" class="btn-small btn-success"
+                                                            title="Marcar como Pagado"
+                                                            aria-label="Marcar recibo <%= f.NUMERO_RECIBO %> como pagado">
+                                                        <i class="fas fa-dollar-sign"></i> Pagar
+                                                    </button>
+                                                </form>
+
+                                                <!-- Anular -->
+                                                <form action="/recibos/status/<%= f.ID_RECIBO %>?_method=PUT"
+                                                      method="POST"
+                                                      class="actions-form"
+                                                      onsubmit="return confirm('¿Está seguro de ANULAR el recibo #<%= f.NUMERO_RECIBO %>? Esta acción no se puede revertir.');">
+
+                                                    <input type="hidden" name="newStatus" value="ANULADA">
+                                                    <input type="hidden" name="montoTotalToRestore" value="0.00">
+                                                    <input type="hidden" name="original_query" value="list">
+
+                                                    <button type="submit" class="btn-small btn-danger"
+                                                            title="Anular Recibo"
+                                                            aria-label="Anular recibo <%= f.NUMERO_RECIBO %>">
+                                                        <i class="fas fa-times-circle"></i> Anular
+                                                    </button>
+                                                </form>
+
+                                            <% } %>
+
+                                        </div>
+                                    </td>
+                                </tr>
+                            <% }) %>
+
+                        <% } else { %>
+                            <tr>
+                                <td colspan="8" class="no-results no-results-message">
+                                    No se encontraron recibos con los filtros seleccionados.
+                                </td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+
+                </table>
+            </div>
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="footer">
+            Clínicas Roca Maya - Sistema de Gestión © 2025
+        </footer>
+
+    </div>
+</body>
+</html>

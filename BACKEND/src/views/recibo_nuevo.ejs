@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= titulo %> - Clínicas Roca Maya</title>
+    
+    <link rel="stylesheet" href="/css/recibo.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="/js/recibos.js"></script> 
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo-container">
+                <button class="logo-btn" id="logoBtn" title="Volver al Listado de Recibos" aria-label="Volver al Listado de Recibos"> 
+                    <img src="/roca-maya-oct.jpg" alt="Clínicas Roca Maya" class="logo">
+                </button>
+                <div class="clinic-name">Clínicas Roca Maya</div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="page-header">
+                <h1><i class="fas fa-file-invoice-dollar"></i> <%= titulo %></h1>
+            </div>
+
+            <% if (typeof error !== 'undefined' && error) { %>
+                <div class="alert alert-error" role="alert"><%= error %></div>
+            <% } %>
+
+            <div class="form-container">
+                <form action="/recibos" method="POST" id="formNuevoRecibo"> 
+                    
+                    <fieldset class="form-section">
+                        <legend class="section-title">Datos de Enlace (Cita / Paciente)</legend>
+                        <div class="form-group-grid two-columns">
+                            <div class="form-group">
+                                <label for="cita_id">ID Cita Médica (Opcional):</label>
+                                <input type="number" id="cita_id" name="ID_CITA" placeholder="Ej: 15" value="<%= locals.ID_CITA || '' %>" aria-describedby="cita_help"> 
+                                <small id="cita_help" class="form-text">Busca los datos del paciente y servicios asociados a la cita.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="paciente_id">ID Paciente:</label>
+                                <input type="text" id="paciente_id" name="ID_PACIENTE" placeholder="ID de Paciente (Se completa con Cita)" required value="<%= locals.ID_PACIENTE || '' %>" readonly aria-required="true" aria-readonly="true">
+                            </div>
+                        </div>
+                    </fieldset>
+                    
+                    <div id="datos_cita_paciente" class="detail-card" style="display: none;" aria-live="polite">
+                        <h4><i class="fas fa-link"></i> Datos Enlazados:</h4>
+                        <p><strong>Paciente:</strong> <span id="info_nombre_paciente"></span> (<span id="info_rtn_paciente"></span>)</p>
+                        <p><strong>Cita:</strong> <span id="info_fecha_cita"></span> - <span id="info_motivo_cita"></span></p>
+                    </div>
+
+                    <fieldset class="form-section">
+                        <legend class="section-title">Agregar Servicios</legend>
+                        <div class="form-group-grid three-columns add-service-grid">
+                            <div class="form-group">
+                                <label for="servicio_selector">Añadir Servicio:</label>
+                                <select id="servicio_selector" required aria-required="true">
+                                    <option value="" data-precio="0">-- Seleccione un Servicio --</option>
+                                    <% if (typeof servicios !== 'undefined' && servicios.length > 0) { %>
+                                        <% servicios.forEach(service => { %>
+                                            <option 
+                                                value="<%= service.ID_SERVICIO %>" 
+                                                data-precio="<%= parseFloat(service.PRECIO_UNITARIO).toFixed(2) %>"
+                                                data-nombre="<%= service.NOMBRE_SERVICIO %>"
+                                            >
+                                                <%= service.NOMBRE_SERVICIO %> (<%= service.TIPO_SERVICIO %>) - L. <%= parseFloat(service.PRECIO_UNITARIO).toFixed(2) %>
+                                            </option>
+                                        <% }); %>
+                                    <% } else { %>
+                                        <option value="" disabled>No hay servicios activos disponibles.</option>
+                                    <% } %>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="cantidad_input">Cantidad:</label>
+                                <input type="number" id="cantidad_input" value="1" min="1" step="1" aria-label="Cantidad de servicio a agregar">
+                            </div>
+                            <div class="form-group action-button-group">
+                                <button type="button" class="btn btn-secondary btn-full" id="btnAddService" aria-label="Agregar servicio a la tabla">
+                                    <i class="fas fa-plus-circle"></i> Agregar
+                                </button>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <div class="table-container" style="margin-top: 25px;">
+                        <table class="data-table detail-table" id="tablaDetalle" aria-describedby="detalles_json_help">
+                            <thead>
+                                <tr>
+                                    <th>Servicio</th>
+                                    <th>Precio Unitario (L.)</th>
+                                    <th>Cantidad</th>
+                                    <th>Total (L.)</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detalleBody">
+                                </tbody>
+                            <tfoot>
+                                <tr id="no-services-row">
+                                    <td colspan="5" style="text-align: center; color: #888;">No hay servicios agregados.</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <input type="hidden" name="DETALLES_JSON" id="detalles_json" required aria-required="true">
+                    <small id="detalles_json_help" style="display: none;">Contiene el JSON de los servicios agregados.</small>
+
+
+                    <fieldset class="total-summary-group">
+                        <legend class="section-title">Resumen de Pago</legend>
+                        <div class="total-summary">
+                            <div class="total-group">
+                                <label>Subtotal (Antes de Desc. e Imp.):</label>
+                                <input type="text" id="subtotal_input_display" value="0.00 L." readonly aria-label="Subtotal antes de descuento e ISV">
+                                <input type="hidden" name="SUBTOTAL" id="subtotal_input_hidden" value="0.00">
+                            </div>
+                            <div class="total-group">
+                                <label for="descuento_input">Descuento (L.):</label>
+                                <input type="number" id="descuento_input" name="DESCUENTO" value="0.00" step="0.01" min="0" aria-label="Monto de descuento aplicado">
+                            </div>
+                            <div class="total-group">
+                                <label>ISV (15%):</label>
+                                <input type="text" id="isv_input_display" value="0.00 L." readonly aria-label="Impuesto sobre ventas calculado">
+                                <input type="hidden" name="ISV" id="isv_input_hidden" value="0.00">
+                            </div>
+                            <div class="total-group total-final">
+                                <label>Monto Total:</label>
+                                <input type="text" id="total_input_display" value="0.00 L." readonly aria-label="Monto total a pagar">
+                                <input type="hidden" name="MONTO_TOTAL" id="total_input_hidden" value="0.00">
+                            </div>
+                        </div>
+                    </fieldset>
+                    
+                    <div class="form-actions" style="margin-top: 30px;">
+                        <button type="submit" class="btn btn-primary" id="btnCrearRecibo" name="ESTADO_RECIBO_ACTION" value="PENDIENTE" disabled aria-disabled="true">
+                            <i class="fas fa-save"></i> Crear Recibo (<span class="status-tag status-pendiente">Pendiente</span>)
+                        </button>
+                        
+                        <button type="submit" class="btn btn-success btn-large" id="btnCrearYpagar" name="ESTADO_RECIBO_ACTION" value="PAGADA" disabled aria-disabled="true" style="margin-left: 15px;">
+                            <i class="fas fa-wallet"></i> **Crear y Pagar**
+                        </button>
+
+                        <a href="/recibos" class="btn btn-secondary" style="margin-left: 15px;">
+                            <i class="fas fa-arrow-left"></i> Cancelar y Volver
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </main>
+        
+        <footer class="footer">
+            Clínicas Roca Maya - Sistema de Gestión &copy; 2025
+        </footer>
+    </div>
+</body>
+</html>

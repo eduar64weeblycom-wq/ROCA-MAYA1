@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Especialidades - Clínicas Roca Maya</title>
+  <link rel="icon" href="/ICONO.jpg" type="image/jpeg">
+
+  <!-- Librerías externas -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/bitacora.css">
+  <link rel="stylesheet" href="/css/styleCitas.css">
+
+  <!-- Librerías JS externas para PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- JS personalizado -->
+  <script src="/js/especialidades.js" defer></script>
+
+  <style>
+    /* Estilo para selector de iconos */
+    .icon-list i {
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 5px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .icon-list i:hover {
+      border-color: #3498DB;
+      color: #3498DB;
+    }
+    .preview-icon-wrapper {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- HEADER -->
+    <div class="header">
+      <div class="logo-container">
+        <button class="logo-btn" id="logoBtn" title="Volver al Dashboard">
+          <img src="/roca-maya-oct.jpg" alt="Clínicas Roca Maya" class="logo">
+        </button>
+        <div class="clinic-name">Clínicas Roca Maya</div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+      <div class="page-header">
+        <h1 class="page-title"><i class="fas fa-microscope"></i> Gestión de Especialidades Médicas</h1>
+        <div class="actions">
+          <button class="btn btn-primary" id="btnNuevaEspecialidadHeader">
+            <i class="fas fa-plus"></i> Nueva Especialidad
+          </button>
+          <button class="btn btn-secondary" id="btnImprimir">
+            <i class="fas fa-print"></i> Imprimir PDF
+            <div class="loading" id="loadingPrint" style="display:none; margin-left:10px;">
+              <i class="fas fa-spinner fa-spin"></i> Generando PDF...
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- ALERTAS -->
+      <div id="alertSuccess" class="alert success">
+        <i class="fas fa-check-circle"></i> <span id="successMessage"></span>
+      </div>
+      <div id="alertError" class="alert error">
+        <i class="fas fa-exclamation-circle"></i> <span id="errorMessage"></span>
+      </div>
+
+      <!-- FILTROS -->
+      <div class="filters">
+        <div class="filter-group">
+          <label class="filter-label">Nombre:</label>
+          <input type="text" class="filter-input" id="filterNombre" placeholder="Filtrar por nombre...">
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Estado:</label>
+          <select class="filter-input" id="filterEstado">
+            <option value="">Todos</option>
+            <option value="ACTIVA">ACTIVA</option>
+            <option value="INACTIVA">INACTIVA</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="btnAplicarFiltros">
+          <i class="fas fa-filter"></i> Aplicar Filtros
+        </button>
+        <button class="btn btn-secondary" id="btnLimpiarFiltros">
+          <i class="fas fa-times"></i> Limpiar
+        </button>
+      </div>
+
+      <!-- TABLA -->
+      <div class="table-container" id="tablaContenido">
+        <table class="bitacora-table" id="especialidadesTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Descripción</th>
+              <th>Icono</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaBody">
+            <tr class="no-results no-results-message">
+              <td colspan="6" style="text-align:center;">
+                <i class="fas fa-spinner fa-spin"></i> Cargando especialidades...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- INFORMACIÓN ADICIONAL -->
+      <div class="filters" style="justify-content: space-between;">
+        <div><strong>Total de registros:</strong> <span id="totalRegistros">0</span></div>
+        <div><strong>Registros mostrados:</strong> <span id="registrosMostrados">0</span></div>
+        <div><strong>Última actualización:</strong> <span id="ultimaActualizacion"></span></div>
+      </div>
+    </div>
+
+    <!-- MODAL NUEVA/EDITAR ESPECIALIDAD -->
+    <div id="modalEspecialidad" class="ctmodal-cita">
+      <div class="ctmodal-contenido">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h4 id="modalTitle">Nueva Especialidad</h4>
+          <button type="button" class="ctclose-modal" id="btnCloseModal">&times;</button>
+        </div>
+
+        <div id="modalError" class="alert error" style="margin-bottom:15px; display:none;">
+          <i class="fas fa-exclamation-circle"></i> <span id="modalErrorMessage"></span>
+        </div>
+
+        <form id="formEspecialidad">
+          <div class="mb-3">
+            <label for="inputNombre">Nombre *</label>
+            <input id="inputNombre" type="text" class="ctinput-field" maxlength="100" required />
+          </div>
+
+          <div class="mb-3">
+            <label for="textareaDescripcion">Descripción</label>
+            <textarea id="textareaDescripcion" class="ctinput-field" rows="3"></textarea>
+          </div>
+          
+          <div class="row mb-3 align-items-end">
+            <div style="flex: 2;">
+              <label for="inputColor">Color</label>
+              <input id="inputColor" type="color" class="ctinput-field" value="#3498DB" />
+            </div>
+            <div style="flex: 3;">
+              <label for="inputIcono">Icono</label>
+              <input id="inputIcono" type="text" class="ctinput-field" placeholder="Ej: stethoscope" />
+              <div id="iconList" class="icon-list"></div>
+            </div>
+            <div style="flex: 1; text-align: center;">
+              <div id="previewIcono" class="preview-icon-wrapper" style="background-color: #3498DB;">
+                  <i class="fas fa-stethoscope"></i>
+              </div>
+            </div>
+          </div>
+          
+          <div id="estadoGroup" class="mb-3" style="display:none;">
+              <label for="selectEstado">Estado</label>
+              <select id="selectEstado" class="ctinput-field">
+                  <option value="ACTIVA">ACTIVA</option>
+                  <option value="INACTIVA">INACTIVA</option>
+              </select>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button type="button" class="btn btn-secondary" id="btnCancelarModal">CERRAR</button>
+            <button type="submit" class="btn btn-primary" id="modalGuardarBtn">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      Clínicas Roca Maya - Sistema de Gestión &copy; 2025
+    </div>
+  </div>
+</body>
+</html>

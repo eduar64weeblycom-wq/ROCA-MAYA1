@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Consulta Médica - Clínicas Roca Maya</title>
+  <link rel="stylesheet" href="/css/styleCitas.css" />
+  <link rel="stylesheet" href="/css/consultaMedica.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    /* inline small styles para mensajes de campo */
+    .field-error { border-color: #dc3545 !important; box-shadow: 0 0 0 4px rgba(220,53,69,0.06) !important; }
+    .error-text { color:#721c24; font-size:0.9rem; margin-top:6px; display:none; }
+  </style>
+</head>
+<body>
+  <main class="ctcontainer ctmy-4">
+    <div class="ctcitas-header">
+      <div class="header-left">
+        <div class="logo-container">
+          <button class="logo-btn" id="logoBtn" title="Volver al Dashboard" aria-label="Volver al Dashboard" type="button" onclick="window.location.href='/'">
+            <img src="/roca-maya-oct.jpg" alt="Clínicas Roca Maya" class="logo">
+          </button>
+          <div class="clinic-name">Clínicas Roca Maya</div>
+        </div>
+        <div class="title-wrap">
+          <h1><i class="fas fa-notes-medical"></i> Consulta Médica</h1>
+          <p class="ctsmall">Registro y seguimiento de consultas</p>
+        </div>
+      </div>
+      <div class="actions-right">
+        <button id="btnImprimir" class="btn btn-outline-secondary me-2" type="button" title="Imprimir"><i class="fas fa-print"></i> Imprimir</button>
+        <button id="btnNuevaConsulta" class="ctbtn-primary" type="button"><i class="fas fa-plus"></i> Nueva Consulta</button>
+      </div>
+    </div>
+
+    <div id="alertSuccessConsulta" class="ctalert ctalert-success" style="display:none;">
+      <i class="fas fa-check-circle"></i> <span id="successMessageConsulta"></span>
+    </div>
+    <div id="alertErrorConsulta" class="ctalert ctalert-error" style="display:none;">
+      <i class="fas fa-exclamation-circle"></i> <span id="errorMessageConsulta"></span>
+    </div>
+
+    <div class="ctfiltros-consulta">
+      <div class="ctfiltro-item">
+        <label for="searchConsulta">Buscar (paciente, doctor, teléfono, fecha...):</label>
+        <input id="searchConsulta" class="search-input" placeholder="Buscar por nombre, teléfono, identidad..." />
+      </div>
+      <div class="ctfiltro-item">
+        <label for="filtroTipoConsulta">Tipo</label>
+        <select id="filtroTipoConsulta" class="ctinput-field">
+          <option value="">Todos</option>
+          <option value="GENERAL">General</option>
+          <option value="ESPECIALIDAD">Especialidad</option>
+          <option value="CONTROL">Control</option>
+          <option value="EMERGENCIA">Emergencia</option>
+        </select>
+      </div>
+      <div class="ctfiltro-item">
+        <label for="filtroFechaConsulta">Fecha</label>
+        <input id="filtroFechaConsulta" type="date" class="ctinput-field" />
+      </div>
+    </div>
+
+    <div class="cttabla-consulta">
+      <div id="tablaContenidoConsulta" class="ctmy-4">
+        <div class="ctsin-citas">
+          <i class="fas fa-notes-medical"></i>
+          <h3>No hay consultas registradas</h3>
+          <p>Puedes crear una con "Nueva Consulta".</p>
+          <button class="ctbtn-primary" id="btnCrearPrimeraConsulta" type="button"><i class="fas fa-plus"></i> Nueva Consulta</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Consulta -->
+  <div id="modalConsulta" class="ctmodal-consulta" aria-hidden="true">
+    <div class="ctmodal-contenido" role="dialog" aria-modal="true" aria-labelledby="modalTitleConsulta">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 id="modalTitleConsulta"><i class="fas fa-notes-medical" style="color:var(--color-bg-gradient-a)"></i> Consulta</h2>
+        <button id="btnCerrarModalConsulta" class="ctclose-modal" title="Cerrar" type="button">&times;</button>
+      </div>
+
+      <div id="modalErrorConsulta" class="ctalert ctalert-error" style="display:none; margin-top:10px;"></div>
+
+      <form id="formConsulta" class="ctform" style="margin-top:12px;" onsubmit="return false;">
+        <input type="hidden" id="idConsulta" />
+        <div class="ctmodal-form-grid">
+          <div class="full">
+            <label for="selectCitaConsulta">Cita</label>
+            <select id="selectCitaConsulta" class="ctinput-field"></select>
+            <div id="selectCitaConsulta-error" class="error-text"></div>
+            <div id="pacienteInfoConsulta" style="margin-top:8px; font-size:0.95rem; color:var(--color-text-light);"></div>
+
+            <!-- Bloque de Preclínica (campos estructurados y visibles) -->
+            <div id="preclinicaInfoConsulta" style="margin-top:12px; padding:10px; border-radius:6px; background:#f7f9fb; border:1px solid #e6eef6; display:none;">
+              <strong>Preclínica</strong>
+              <div id="preclinicaFields" style="margin-top:8px; display:grid; grid-template-columns:repeat(2,1fr); gap:8px; align-items:center;">
+                <div>
+                  <label class="ctsmall">Temperatura (°C)</label>
+                  <input id="pre_TEMPERATURA" class="ctinput-field" readonly />
+                </div>
+                <div>
+                  <label class="ctsmall">Presión (sistólica/diastólica)</label>
+                  <div style="display:flex; gap:8px;">
+                    <input id="pre_PRESION_SISTOLICA" class="ctinput-field" readonly />
+                    <input id="pre_PRESION_DIASTOLICA" class="ctinput-field" readonly />
+                  </div>
+                </div>
+
+                <div>
+                  <label class="ctsmall">Peso (kg)</label>
+                  <input id="pre_PESO" class="ctinput-field" readonly />
+                </div>
+                <div>
+                  <label class="ctsmall">Talla (m)</label>
+                  <input id="pre_TALLA" class="ctinput-field" readonly />
+                </div>
+
+                <div>
+                  <label class="ctsmall">IMC</label>
+                  <input id="pre_IMC" class="ctinput-field" readonly />
+                </div>
+                <div>
+                  <label class="ctsmall">Frecuencia Cardíaca (lpm)</label>
+                  <input id="pre_FC" class="ctinput-field" readonly />
+                </div>
+
+                <div>
+                  <label class="ctsmall">Frecuencia Respiratoria (rpm)</label>
+                  <input id="pre_FR" class="ctinput-field" readonly />
+                </div>
+                <div>
+                  <label class="ctsmall">Saturación O₂ (%)</label>
+                  <input id="pre_SATURACION" class="ctinput-field" readonly />
+                </div>
+
+                <div>
+                  <label class="ctsmall">Glucosa (mg/dL)</label>
+                  <input id="pre_GLUCOSA" class="ctinput-field" readonly />
+                </div>
+                <div>
+                  <label class="ctsmall">Perímetro abdominal (cm)</label>
+                  <input id="pre_PERIMETRO" class="ctinput-field" readonly />
+                </div>
+
+                <div style="grid-column:1/-1;">
+                  <label class="ctsmall">Observaciones</label>
+                  <textarea id="pre_OBSERVACIONES" rows="2" class="ctinput-field" readonly></textarea>
+                </div>
+              </div>
+
+              <!-- Resumen legacy (por si existe) -->
+              <div id="preclinicaContenidoConsulta" style="margin-top:10px; font-size:0.95rem; color:#222; display:none;"></div>
+            </div>
+          </div>
+
+          <div class="full">
+            <label for="motivoConsulta">Motivo</label>
+            <textarea id="motivoConsulta" rows="4" class="ctinput-field"></textarea>
+            <div id="motivoConsulta-error" class="error-text"></div>
+          </div>
+
+          <div class="full">
+            <label for="sintomasConsulta">Síntomas (una por línea)</label>
+            <textarea id="sintomasConsulta" rows="6" class="ctinput-field"></textarea>
+            <div id="sintomasConsulta-error" class="error-text"></div>
+          </div>
+
+          <div class="full">
+            <label for="examenFisicoConsulta">Examen físico (una por línea)</label>
+            <textarea id="examenFisicoConsulta" rows="6" class="ctinput-field"></textarea>
+            <div id="examenFisicoConsulta-error" class="error-text"></div>
+          </div>
+
+          <div>
+            <label for="diagnosticoPrincipal">Diagnóstico principal *</label>
+            <textarea id="diagnosticoPrincipal" rows="2" class="ctinput-field"></textarea>
+            <div id="diagnosticoPrincipal-error" class="error-text"></div>
+          </div>
+
+          <div class="full">
+            <label for="tratamiento">Tratamiento *</label>
+            <textarea id="tratamiento" rows="6" class="ctinput-field"></textarea>
+            <div id="tratamiento-error" class="error-text"></div>
+          </div>
+
+          <div class="full">
+            <label for="recomendaciones">Recomendaciones *</label>
+            <textarea id="recomendaciones" rows="4" class="ctinput-field"></textarea>
+            <div id="recomendaciones-error" class="error-text"></div>
+          </div>
+
+          <div>
+            <label for="tipoConsulta">Tipo de consulta</label>
+            <select id="tipoConsulta" class="ctinput-field">
+              <option value="GENERAL">GENERAL</option>
+              <option value="ESPECIALIDAD">ESPECIALIDAD</option>
+              <option value="CONTROL">CONTROL</option>
+              <option value="EMERGENCIA">EMERGENCIA</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:18px;">
+          <button type="button" id="btnCancelarConsulta" class="ctbtn-secondary">Cancelar</button>
+          <button type="button" id="btnGuardarConsulta" class="ctbtn-primary"><i class="fas fa-save"></i> Guardar Consulta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/consultaMedica.js" defer></script>
+</body>
+</html>
