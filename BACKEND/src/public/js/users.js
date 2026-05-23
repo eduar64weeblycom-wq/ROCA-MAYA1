@@ -1,150 +1,346 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // Elementos principales de la interfaz
   const tabla = document.getElementById('usuariosTable');
-  const filas = tabla.querySelectorAll('tbody tr');
+  const filas = tabla ? tabla.querySelectorAll('tbody tr.fila-usuario') : [];
   const totalUsuarios = document.getElementById('totalUsuarios');
   const usuariosMostrados = document.getElementById('usuariosMostrados');
   const ultimaActualizacion = document.getElementById('ultimaActualizacion');
 
-  // Filtros
+  // Filtros de búsqueda
   const usuarioFilter = document.getElementById('usuarioFilter');
   const nombreFilter = document.getElementById('nombreFilter');
   const estadoFilter = document.getElementById('estadoFilter');
   const tfaFilter = document.getElementById('tfaFilter');
 
-  // Botones
+  // Botones de acción general
   const btnFiltros = document.getElementById('btnAplicarFiltros');
   const btnLimpiar = document.getElementById('btnLimpiarFiltros');
   const btnImprimir = document.getElementById('btnImprimir');
   const logoBtn = document.getElementById('logoBtn');
   const btnNuevoUsuario = document.getElementById('btnNuevoUsuario');
 
-  // Modal elements
+  // Modales y sus formularios internos
   const modalUsuario = document.getElementById('modalUsuario');
   const modalEliminar = document.getElementById('modalEliminar');
   const formUsuario = document.getElementById('formUsuario');
+  
+  // Inputs del Modal de Edición / Creación
+  const inputId = document.getElementById('inputId');
+  const inputUsuario = document.getElementById('inputUsuario');
+  const inputNombre = document.getElementById('inputNombre');
+  const selectRol = document.getElementById('selectRol'); 
+  const selectEstado = document.getElementById('selectEstado');
+
+  // Botones de control de los Modales
   const btnCancelar = document.getElementById('btnCancelar');
   const btnCancelarEliminar = document.getElementById('btnCancelarEliminar');
   const btnConfirmarEliminar = document.getElementById('btnConfirmarEliminar');
   const textoConfirmacion = document.getElementById('textoConfirmacion');
 
-  // Variables globales
-  let usuarioEditandoId = null;
+  // Identificador único del Administrador en sesión para Auditoría/Bitácora
+  const usuarioLogueado = "ADMINISTRADOR"; 
+
+  // Variables de control de estado interno
   let usuarioEliminarId = null;
 
-  // Inicializar contadores
-  totalUsuarios.textContent = filas.length;
-  usuariosMostrados.textContent = filas.length;
-  ultimaActualizacion.textContent = new Date().toLocaleString();
+  // =====================================================================
+  // INICIALIZACIÓN DE CONTADORES
+  // =====================================================================
+  if (totalUsuarios) totalUsuarios.textContent = filas.length;
+  if (usuariosMostrados) usuariosMostrados.textContent = filas.length;
+  if (ultimaActualizacion) ultimaActualizacion.textContent = new Date().toLocaleString();
 
-  // Aplicar filtros
-  btnFiltros.addEventListener('click', aplicarFiltros);
+  // =====================================================================
+  // EVENTOS DE FILTROS Y NAVEGACIÓN
+  // =====================================================================
+  if (btnFiltros) btnFiltros.addEventListener('click', aplicarFiltros);
 
-  // Limpiar filtros
-  btnLimpiar.addEventListener('click', () => {
-    usuarioFilter.value = '';
-    nombreFilter.value = '';
-    estadoFilter.value = '';
-    tfaFilter.value = '';
-    aplicarFiltros();
-  });
+  if (btnLimpiar) {
+    btnLimpiar.addEventListener('click', () => {
+      if (usuarioFilter) usuarioFilter.value = '';
+      if (nombreFilter) nombreFilter.value = '';
+      if (estadoFilter) estadoFilter.value = '';
+      if (tfaFilter) tfaFilter.value = '';
+      aplicarFiltros();
+    });
+  }
 
-  // Funcionalidad del botón Imprimir
-  btnImprimir.addEventListener('click', async () => {
+  if (logoBtn) {
+    logoBtn.addEventListener('click', () => {
+      window.location.href = '/dashboard';
+    });
+  }
+
+  // =====================================================================
+  // EVENTO PARA CREAR NUEVO USUARIO (ABRIR MODAL LIMPIO)
+  // =====================================================================
+  if (btnNuevoUsuario) {
+    btnNuevoUsuario.addEventListener('click', () => {
+      if (formUsuario) formUsuario.reset(); 
+      if (inputId) inputId.value = '';     
+      
+      const modalTitulo = document.getElementById('modalTitulo');
+      if (modalTitulo) modalTitulo.textContent = 'Crear Nuevo Usuario';
+      
+      if (modalUsuario) modalUsuario.style.display = 'block';
+    });
+  }
+
+  // =====================================================================
+  // DELEGACIÓN DE EVENTOS DE LA TABLA (EDITAR, ELIMINAR, ACTIVAR)
+  // =====================================================================
+  if (tabla) {
+    tabla.addEventListener('click', function(e) {
+      const target = e.target;
+      const btnEditar = target.closest('.btn-editar');
+      const btnEliminar = target.closest('.btn-eliminar');
+      const btnActivar = target.closest('.btn-activar');
+      const btnEliminarPermanente = target.closest('.btn-eliminar-permanente');
+      
+      if (btnEditar) {
+        const fila = btnEditar.closest('.fila-usuario');
+        if (!fila) return;
+        
+        const id = fila.getAttribute('data-id');
+        const usuario = fila.querySelector('.usuario').textContent.trim();
+        const nombre = fila.querySelector('.nombre').textContent.trim();
+        const idRol = fila.getAttribute('data-id-rol'); 
+        const estado = fila.querySelector('.estado-td span').textContent.trim();
+
+        inputId.value = id;
+        inputUsuario.value = usuario;
+        inputNombre.value = nombre;
+        if (selectRol) selectRol.value = idRol; 
+        if (selectEstado) selectEstado.value = estado;
+
+        const modalTitulo = document.getElementById('modalTitulo');
+        if (modalTitulo) modalTitulo.textContent = 'Editar Usuario';
+        
+        modalUsuario.style.display = 'block';
+        return;
+      }
+      
+      if (btnEliminar) {
+        const fila = btnEliminar.closest('.fila-usuario');
+        if (!fila) return;
+        const id = fila.getAttribute('data-id');
+        const usuario = fila.querySelector('.usuario').textContent.trim();
+        
+        cambiarEstadoUsuario(id, usuario, 'INACTIVO');
+        return;
+      }
+      
+      if (btnActivar) {
+        const fila = btnActivar.closest('.fila-usuario');
+        if (!fila) return;
+        const id = fila.getAttribute('data-id');
+        const usuario = fila.querySelector('.usuario').textContent.trim();
+        
+        cambiarEstadoUsuario(id, usuario, 'ACTIVO');
+        return;
+      }
+      
+      if (btnEliminarPermanente) {
+        const fila = btnEliminarPermanente.closest('.fila-usuario');
+        if (!fila) return;
+        const id = fila.getAttribute('data-id');
+        const usuario = fila.querySelector('.usuario').textContent.trim();
+        
+        usuarioEliminarId = id;
+        textoConfirmacion.textContent = `¿Está seguro de que desea eliminar permanentemente al usuario "${usuario}"? Esta acción no se puede deshacer.`;
+        modalEliminar.style.display = 'block';
+        return;
+      }
+    });
+  }
+
+  // =====================================================================
+  // GUARDAR EDICIÓN O CREACIÓN DE USUARIO (SUBMIT FORM)
+  // =====================================================================
+  if (formUsuario) {
+    formUsuario.addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const id = inputId.value; 
+      const usuario = inputUsuario.value.trim();
+      const nombre_usuario = inputNombre.value.trim();
+      const estado = selectEstado.value;
+      const id_rol = selectRol ? selectRol.value : null;
+
+      if (!usuario || !nombre_usuario) {
+        alert("El usuario y el nombre completo no pueden estar vacíos.");
+        return;
+      }
+
+      const datosPeticion = {
+        usuario,
+        nombre_usuario,
+        id_rol,
+        estado,
+        usuarioAccion: usuarioLogueado
+      };
+
+      let url = "/users/api/create"; 
+
+      if (id) {
+        url = "/users/api/update";
+        datosPeticion.id = id;
+
+        const filaAfectada = document.querySelector(`.fila-usuario[data-id="${id}"]`);
+        datosPeticion.activo_2fa = filaAfectada ? (filaAfectada.getAttribute('data-tfa') || 0) : 0;
+      } else {
+        datosPeticion.contrasena = "RocaMaya2026!"; 
+        datosPeticion.correo = "correo@ejemplo.com"; 
+      }
+
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(datosPeticion)
+        });
+
+        const data = await res.json();
+        
+        if (!data.ok) {
+          alert(`Error al procesar usuario: ${data.msg || 'Error desconocido'}`);
+          return;
+        }
+
+        alert(id ? "Usuario y Rol actualizados correctamente" : "Usuario creado correctamente (Contraseña temporal: RocaMaya2026!)");
+        cerrarModal();
+        window.location.reload(); 
+
+      } catch (err) {
+        console.error("Error en Fetch Form:", err);
+        alert("Error de conexión con el servidor");
+      }
+    });
+  }
+
+  // =====================================================================
+  // CONFIRMAR ELIMINACIÓN PERMANENTE
+  // =====================================================================
+  if (btnConfirmarEliminar) {
+    btnConfirmarEliminar.addEventListener('click', async () => {
+      if (!usuarioEliminarId) return;
+
+      try {
+        const res = await fetch("/users/api/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: usuarioEliminarId,
+            usuarioAccion: usuarioLogueado
+          })
+        });
+
+        const data = await res.json();
+        if (!data.ok) {
+          alert("Error al eliminar: " + (data.msg || 'Error desconocido'));
+          return;
+        }
+
+        const fila = document.querySelector(`.fila-usuario[data-id="${usuarioEliminarId}"]`);
+        if (fila) fila.remove();
+
+        alert(data.msg || "Usuario eliminado de forma permanente.");
+        cerrarModalEliminar();
+        actualizarContadores();
+
+      } catch (err) {
+        console.error("Error al eliminar usuario:", err);
+        alert("Error al intentar procesar la eliminación: " + err.message);
+      }
+    });
+  }
+
+  // =====================================================================
+  // ACTIVAR / DESACTIVAR ESTADO
+  // =====================================================================
+  async function cambiarEstadoUsuario(id, usuario, nuevoEstado) {
+    const accion = nuevoEstado === 'ACTIVO' ? 'activar' : 'desactivar';
+    if (!confirm(`¿Está seguro de que desea ${accion} al usuario "${usuario}"?`)) return;
+
     try {
-      const logoBase64 = await imageToBase64('/roca-maya-oct.jpg');
-      generarVentanaImpresion(logoBase64);
-    } catch (error) {
-      console.log('No se pudo cargar el logo, usando versión sin logo');
-      generarVentanaImpresion(null);
+      const res = await fetch("/users/api/cambiar-estado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: id,
+          estado: nuevoEstado,
+          usuarioAccion: usuarioLogueado
+        })
+      });
+
+      const data = await res.json();
+      if (!data.ok) {
+        alert("Error al procesar cambio de estado: " + (data.msg || 'Error interno'));
+        return;
+      }
+
+      const filaActualizada = document.querySelector(`.fila-usuario[data-id="${id}"]`);
+      if (filaActualizada) {
+        const estadoSpan = filaActualizada.querySelector('.estado-td span');
+        if (estadoSpan) {
+          estadoSpan.textContent = nuevoEstado;
+          estadoSpan.className = nuevoEstado === 'ACTIVO' ? 'estado-activo' : 'estado-inactivo';
+        }
+        actualizarBotonesEstado(filaActualizada, nuevoEstado);
+      }
+
+      alert(data.msg || `Usuario modificado exitosamente.`);
+      aplicarFiltros();
+
+    } catch (err) {
+      console.error("Error en Cambio Estado:", err);
+      alert("Error de comunicación con el servidor.");
     }
-  });
+  }
 
-  // Funcionalidad del botón del logo
-  logoBtn.addEventListener('click', () => {
-    window.location.href = '/dashboard';
-  });
+  function actualizarBotonesEstado(fila, estado) {
+    const tdAcciones = fila.querySelector('.acciones-td');
+    if (!tdAcciones) return;
+    const id = fila.getAttribute('data-id');
 
-  // Funcionalidad de los botones del modal
-  btnCancelar.addEventListener('click', cerrarModal);
-  btnCancelarEliminar.addEventListener('click', cerrarModalEliminar);
-  btnConfirmarEliminar.addEventListener('click', confirmarEliminacion);
+    let botonesHTML = `
+      <button class="btn-accion btn-editar" title="Editar usuario" data-id="${id}">
+        <i class="fas fa-edit"></i> Editar
+      </button>
+    `;
 
-  // Submit del formulario de edición
-  formUsuario.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    await guardarUsuario();
-  });
-
-  // Delegación de eventos para botones de acción en las filas
-  tabla.addEventListener('click', function(e) {
-    const target = e.target;
-    const btnEditar = target.closest('.btn-editar');
-    const btnEliminar = target.closest('.btn-eliminar');
-    const btnActivar = target.closest('.btn-activar');
-    const btnEliminarPermanente = target.closest('.btn-eliminar-permanente');
-    
-    if (btnEditar) {
-      const fila = btnEditar.closest('.fila-usuario');
-      if (!fila) return;
-      
-      const id = fila.dataset.id;
-      const usuario = fila.querySelector('.usuario').textContent;
-      const nombre = fila.querySelector('.nombre').textContent;
-      const estado = fila.querySelector('.estado-td span').textContent;
-
-      abrirModalEditar(id, usuario, nombre, estado);
-      return;
+    if (estado === 'ACTIVO') {
+      botonesHTML += `
+        <button class="btn-accion btn-eliminar" title="Desactivar usuario" data-id="${id}">
+          <i class="fas fa-user-slash"></i> Desactivar
+        </button>
+      `;
+    } else {
+      botonesHTML += `
+        <button class="btn-accion btn-activar" title="Activar usuario" data-id="${id}">
+          <i class="fas fa-user-check"></i> Activar
+        </button>
+      `;
     }
-    
-    if (btnEliminar) {
-      const fila = btnEliminar.closest('.fila-usuario');
-      if (!fila) return;
-      const id = fila.dataset.id;
-      const usuario = fila.querySelector('.usuario').textContent;
-      
-      cambiarEstadoUsuario(id, usuario, 'INACTIVO');
-      return;
-    }
-    
-    if (btnActivar) {
-      const fila = btnActivar.closest('.fila-usuario');
-      if (!fila) return;
-      const id = fila.dataset.id;
-      const usuario = fila.querySelector('.usuario').textContent;
-      
-      cambiarEstadoUsuario(id, usuario, 'ACTIVO');
-      return;
-    }
-    
-    if (btnEliminarPermanente) {
-      const fila = btnEliminarPermanente.closest('.fila-usuario');
-      if (!fila) return;
-      const id = fila.dataset.id;
-      const usuario = fila.querySelector('.usuario').textContent;
-      
-      abrirModalEliminar(id, usuario);
-      return;
-    }
-  });
 
-  // Cerrar modales al hacer clic fuera de ellos
-  window.addEventListener('click', function(e) {
-    if (e.target === modalUsuario) {
-      cerrarModal();
-    }
-    if (e.target === modalEliminar) {
-      cerrarModalEliminar();
-    }
-  });
+    botonesHTML += `
+      <button class="btn-accion btn-eliminar-permanente" title="Eliminar usuario" data-id="${id}">
+        <i class="fas fa-trash"></i> Eliminar
+      </button>
+    `;
 
-  // ==================== FUNCIONES PRINCIPALES ====================
+    tdAcciones.innerHTML = botonesHTML;
+  }
 
+  // =====================================================================
+  // SISTEMA DE FILTRADO LOCAL
+  // =====================================================================
   async function aplicarFiltros() {
     let mostrados = 0;
-    const usuario = usuarioFilter.value.toLowerCase();
-    const nombre = nombreFilter.value.toLowerCase();
-    const estado = estadoFilter.value;
-    const tfa = tfaFilter.value;
+    const usuario = usuarioFilter ? usuarioFilter.value.toLowerCase() : '';
+    const nombre = nombreFilter ? nombreFilter.value.toLowerCase() : '';
+    const estado = estadoFilter ? estadoFilter.value : '';
+    const tfa = tfaFilter ? tfaFilter.value : '';
 
     filas.forEach(fila => {
       const usuarioCelda = fila.querySelector('.usuario').textContent.toLowerCase();
@@ -167,289 +363,56 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    usuariosMostrados.textContent = mostrados;
-    ultimaActualizacion.textContent = new Date().toLocaleString();
-  }
-
-  function abrirModalEditar(id, usuario, nombre, estado) {
-    usuarioEditandoId = id;
-    
-    document.getElementById('modalTitulo').textContent = 'Editar Usuario';
-    document.getElementById('inputId').value = id;
-    document.getElementById('inputUsuario').value = usuario;
-    document.getElementById('inputNombre').value = nombre;
-    document.getElementById('selectEstado').value = estado;
-
-    modalUsuario.style.display = 'block';
-  }
-
-  function abrirModalEliminar(id, usuario) {
-    usuarioEliminarId = id;
-    textoConfirmacion.textContent = `¿Está seguro de que desea eliminar permanentemente al usuario "${usuario}"? Esta acción no se puede deshacer.`;
-    modalEliminar.style.display = 'block';
-  }
-
-  async function guardarUsuario() {
-    if (!usuarioEditandoId) {
-      alert("Error: No se encontró el usuario a editar.");
-      return;
-    }
-
-    const usuario = document.getElementById('inputUsuario').value;
-    const nombre_usuario = document.getElementById('inputNombre').value;
-    const estado = document.getElementById('selectEstado').value;
-
-    // Validaciones
-    if (!usuario.trim()) {
-      alert("El usuario no puede estar vacío");
-      return;
-    }
-
-    if (!nombre_usuario.trim()) {
-      alert("El nombre no puede estar vacío");
-      return;
-    }
-
-    // Aquí debes obtener el ID del usuario que está realizando la acción
-    const usuarioAccion = 1; // Reemplaza esto con el ID del usuario logueado
-
-    try {
-      const res = await fetch("/users/api/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: usuarioEditandoId,
-          usuario,
-          nombre_usuario,
-          estado,
-          activo_2fa: 0,
-          usuarioAccion
-        })
-      });
-
-      const data = await res.json();
-      if (!data.ok) {
-        alert("Error al actualizar usuario: " + (data.msg || 'Error desconocido'));
-        return;
-      }
-
-      alert("Usuario actualizado correctamente");
-
-      // Actualizar la interfaz
-      const fila = document.querySelector(`.fila-usuario[data-id="${usuarioEditandoId}"]`);
-      if (fila) {
-        fila.querySelector('.usuario').textContent = usuario;
-        fila.querySelector('.nombre').textContent = nombre_usuario;
-        
-        // Actualizar estado
-        const estadoSpan = fila.querySelector('.estado-td span');
-        estadoSpan.textContent = estado;
-        estadoSpan.className = estado === 'ACTIVO' ? 'estado-activo' : 'estado-inactivo';
-        
-        // Actualizar botones si el estado cambió
-        actualizarBotonesEstado(fila, estado);
-      }
-
-      cerrarModal();
-      aplicarFiltros(); // Re-aplicar filtros para actualizar contadores
-
-    } catch (err) {
-      console.error(err);
-      alert("Error de conexión con el servidor");
-    }
-  }
-
-  async function confirmarEliminacion() {
-    if (!usuarioEliminarId) {
-      alert("Error: No se encontró el usuario a eliminar.");
-      return;
-    }
-
-    const usuarioAccion = 1; // Reemplaza esto con el ID del usuario logueado
-
-    try {
-      console.log("Intentando eliminar usuario ID:", usuarioEliminarId);
-      
-      const res = await fetch("/users/api/delete", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify({
-          id: usuarioEliminarId,
-          usuarioAccion: usuarioAccion
-        })
-      });
-
-      console.log("Respuesta del servidor:", res.status, res.statusText);
-
-      // Si la respuesta es 404, la ruta no existe
-      if (res.status === 404) {
-        throw new Error("La ruta de eliminación no existe en el servidor (404)");
-      }
-
-      // Si la respuesta no es JSON, hay un problema
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await res.text();
-        console.error("Respuesta no JSON del servidor:", text);
-        
-        // Si llegamos aquí pero el usuario se eliminó, mostramos éxito
-        if (res.status === 200) {
-          eliminarFilaYMostrarExito();
-          return;
-        }
-        throw new Error("El servidor respondió con un formato incorrecto");
-      }
-
-      const data = await res.json();
-      
-      if (!data.ok) {
-        alert("Error al eliminar usuario: " + (data.msg || 'Error desconocido'));
-        return;
-      }
-
-      // Éxito - eliminar fila y mostrar mensaje
-      eliminarFilaYMostrarExito(data.msg);
-
-    } catch (err) {
-      console.error("Error completo:", err);
-      
-      // Verificar si el usuario fue eliminado a pesar del error
-      const fila = document.querySelector(`.fila-usuario[data-id="${usuarioEliminarId}"]`);
-      if (!fila) {
-        // Si la fila ya no existe, significa que se eliminó exitosamente
-        alert("Usuario eliminado correctamente");
-        cerrarModalEliminar();
-        actualizarContadores();
-        return;
-      }
-      
-      if (err.message.includes("404") || err.message.includes("ruta no existe")) {
-        alert("Error: La funcionalidad de eliminar no está configurada en el servidor. Contacta al administrador.");
-      } else if (err.message.includes("formato incorrecto")) {
-        alert("Error: El servidor no respondió correctamente.");
-      } else if (err.message.includes("Failed to fetch")) {
-        alert("Error de conexión: No se pudo contactar al servidor.");
-      } else {
-        alert("Error al eliminar usuario: " + err.message);
-      }
-    }
-  }
-
-  // Función auxiliar para eliminar la fila y mostrar éxito
-  function eliminarFilaYMostrarExito(mensaje = "Usuario eliminado correctamente") {
-    const fila = document.querySelector(`.fila-usuario[data-id="${usuarioEliminarId}"]`);
-    if (fila) {
-      fila.remove();
-    }
-    
-    alert(mensaje);
-    cerrarModalEliminar();
-    actualizarContadores();
-  }
-
-  async function cambiarEstadoUsuario(id, usuario, nuevoEstado) {
-    const accion = nuevoEstado === 'ACTIVO' ? 'activar' : 'desactivar';
-    
-    if (!confirm(`¿Está seguro de que desea ${accion} al usuario ${usuario}?`)) {
-      return;
-    }
-
-    const usuarioAccion = 1; // Reemplaza con el ID del usuario logueado
-
-    try {
-      const res = await fetch("/users/api/cambiar-estado", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: id,
-          estado: nuevoEstado,
-          usuarioAccion: usuarioAccion
-        })
-      });
-
-      const data = await res.json();
-      if (!data.ok) {
-        alert("Error al cambiar estado del usuario: " + (data.msg || 'Error desconocido'));
-        return;
-      }
-
-      // Actualizar interfaz
-      const filaActualizada = document.querySelector(`.fila-usuario[data-id="${id}"]`);
-      if (filaActualizada) {
-        const estadoSpan = filaActualizada.querySelector('.estado-td span');
-        estadoSpan.textContent = nuevoEstado;
-        estadoSpan.className = nuevoEstado === 'ACTIVO' ? 'estado-activo' : 'estado-inactivo';
-        
-        actualizarBotonesEstado(filaActualizada, nuevoEstado);
-      }
-
-      alert(data.msg || `Usuario ${usuario} ${accion}do exitosamente`);
-      aplicarFiltros();
-
-    } catch (err) {
-      console.error(err);
-      alert("Error de conexión con el servidor");
-    }
-  }
-
-  function actualizarBotonesEstado(fila, estado) {
-    const tdAcciones = fila.querySelector('.acciones-td');
-    const id = fila.dataset.id;
-
-    if (estado === 'ACTIVO') {
-      tdAcciones.innerHTML = `
-        <button class="btn-accion btn-editar" title="Editar usuario" data-id="${id}">
-          <i class="fas fa-edit"></i> Editar
-        </button>
-        <button class="btn-accion btn-eliminar" title="Desactivar usuario" data-id="${id}">
-          <i class="fas fa-user-slash"></i> Desactivar
-        </button>
-        <button class="btn-accion btn-eliminar-permanente" title="Eliminar usuario" data-id="${id}">
-          <i class="fas fa-trash"></i> Eliminar
-        </button>
-      `;
-    } else {
-      tdAcciones.innerHTML = `
-        <button class="btn-accion btn-editar" title="Editar usuario" data-id="${id}">
-          <i class="fas fa-edit"></i> Editar
-        </button>
-        <button class="btn-accion btn-activar" title="Activar usuario" data-id="${id}">
-          <i class="fas fa-user-check"></i> Activar
-        </button>
-        <button class="btn-accion btn-eliminar-permanente" title="Eliminar usuario" data-id="${id}">
-          <i class="fas fa-trash"></i> Eliminar
-        </button>
-      `;
-    }
+    if (usuariosMostrados) usuariosMostrados.textContent = mostrados;
+    if (ultimaActualizacion) ultimaActualizacion.textContent = new Date().toLocaleString();
   }
 
   function actualizarContadores() {
     const filasActuales = document.querySelectorAll('tbody tr.fila-usuario');
     const total = filasActuales.length;
-    const mostrados = Array.from(filasActuales).filter(fila => 
-      fila.style.display !== 'none'
-    ).length;
+    const mostrados = Array.from(filasActuales).filter(fila => fila.style.display !== 'none').length;
     
-    totalUsuarios.textContent = total;
-    usuariosMostrados.textContent = mostrados;
-    ultimaActualizacion.textContent = new Date().toLocaleString();
+    if (totalUsuarios) totalUsuarios.textContent = total;
+    if (usuariosMostrados) usuariosMostrados.textContent = mostrados;
+    if (ultimaActualizacion) ultimaActualizacion.textContent = new Date().toLocaleString();
   }
 
+  // =====================================================================
+  // CONTROLADORES DE CIERRE DE MODAL
+  // =====================================================================
+  if (btnCancelar) btnCancelar.addEventListener('click', cerrarModal);
+  if (btnCancelarEliminar) btnCancelarEliminar.addEventListener('click', cerrarModalEliminar);
+
   function cerrarModal() {
-    modalUsuario.style.display = 'none';
-    usuarioEditandoId = null;
-    formUsuario.reset();
+    if (modalUsuario) modalUsuario.style.display = 'none';
+    if (formUsuario) formUsuario.reset();
   }
 
   function cerrarModalEliminar() {
-    modalEliminar.style.display = 'none';
+    if (modalEliminar) modalEliminar.style.display = 'none';
     usuarioEliminarId = null;
   }
 
-  // Funciones auxiliares para impresión
+  window.addEventListener('click', function(e) {
+    if (e.target === modalUsuario) cerrarModal();
+    if (e.target === modalEliminar) cerrarModalEliminar();
+  });
+
+  // =====================================================================
+  // MÓDULO DE REPORTE E IMPRESIÓN
+  // =====================================================================
+  if (btnImprimir) {
+    btnImprimir.addEventListener('click', async () => {
+      try {
+        const logoBase64 = await imageToBase64('/roca-maya-oct.jpg');
+        generarVentanaImpresion(logoBase64);
+      } catch (error) {
+        console.log('No se pudo cargar el logo, usando versión sin logo');
+        generarVentanaImpresion(null);
+      }
+    });
+  }
+
   function imageToBase64(url) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -469,16 +432,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function generarVentanaImpresion(logoBase64) {
     const ventana = window.open('', '', 'width=900,height=700');
-    const tablaClon = tabla.cloneNode(true);
+    const tablaOriginal = document.getElementById('usuariosTable');
+    if (!tablaOriginal) return;
+    
+    const tablaClon = tablaOriginal.cloneNode(true);
     
     // Remover columna de acciones
     const filasTabla = tablaClon.querySelectorAll('tr');
     filasTabla.forEach(fila => {
       const celdas = fila.querySelectorAll('td, th');
-      if (celdas.length > 4) {
-        celdas[4].remove();
+      if (celdas.length >= 5) {
+        celdas[4].remove(); 
       }
     });
+    
+    const totalUsuariosText = document.getElementById('totalUsuarios')?.textContent || '0';
     
     ventana.document.write(`
       <html>
@@ -495,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
             table { width: 100%; border-collapse: collapse; font-family: "Times New Roman", Times, serif; margin-top: 20px; }
             th, td { border: 1px solid #ccc; padding: 8px; text-align: left; font-size: 12px; }
             th { background: #f3f3f3; font-weight: bold; }
-            h2 { font-family: "Times New Roman", Times, serif; text-align: center; margin: 20px 0; color: #2c3e50; }
+            h2 { text-align: center; margin: 20px 0; color: #2c3e50; }
             .estado-activo { background-color: #2ecc71; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
             .estado-inactivo { background-color: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
           </style>
@@ -511,7 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <h2>Usuarios del Sistema</h2>
           ${tablaClon.outerHTML}
           <div style="margin-top: 20px; font-size: 12px; text-align: right;">
-            <strong>Total de usuarios:</strong> ${totalUsuarios.textContent}<br>
+            <strong>Total de usuarios:</strong> ${totalUsuariosText}<br>
             <strong>Generado el:</strong> ${new Date().toLocaleString()}
           </div>
         </body>
