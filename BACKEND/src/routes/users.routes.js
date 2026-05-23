@@ -49,7 +49,6 @@ router.post("/api/update", async (req, res) => {
       WHERE ID_USUARIO = ?
     `, [usuario, nombre_usuario, estado, activo_2fa, id]);
 
-
     try {
       const cambios = [];
 
@@ -115,7 +114,6 @@ router.post("/api/delete", async (req, res) => {
     });
   }
 
-  let usuarioEliminado = null;
   let nombreUsuario = "";
 
   try {
@@ -124,8 +122,7 @@ router.post("/api/delete", async (req, res) => {
       return res.status(404).json({ ok: false, msg: "Usuario no encontrado" });
     }
 
-    usuarioEliminado = usuario[0];
-    nombreUsuario = usuarioEliminado.USUARIO;
+    nombreUsuario = usuario[0].USUARIO;
 
     try {
       await pool.query(`
@@ -142,16 +139,11 @@ router.post("/api/delete", async (req, res) => {
         'TBL_MS_USUARIO', 
         usuarioAccion || 'Sistema'
       ]);
-      
-      
     } catch (bitacoraError) {
       console.warn("No se pudo registrar en bitácora:", bitacoraError.message);
-      
     }
 
-
     const [result] = await pool.query(`DELETE FROM TBL_MS_USUARIO WHERE ID_USUARIO = ?`, [id]);
-    
 
     if (result.affectedRows === 0) {
       return res.status(500).json({ 
@@ -169,7 +161,6 @@ router.post("/api/delete", async (req, res) => {
     console.error("ERROR AL ELIMINAR USUARIO:", error);
     
     let mensajeError = "Error en el servidor al eliminar usuario";
-    
     if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === 'ER_ROW_IS_REFERENCED') {
       mensajeError = "No se puede eliminar el usuario porque tiene registros relacionados en otras tablas";
     } else if (error.code === 'ER_NO_REFERENCED_ROW_2') {
